@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ファンタジーマッチ Ver01 - AIボクシング架空対戦シミュレーター</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 20px 16px 60px;
+    background: #f7f7f5;
+    color: #1a1a1a;
+    font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: #666; font-size: 13px; margin: 0 0 24px; }
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  @media (max-width: 620px) { .panels { grid-template-columns: 1fr; } }
+  .panel { border: 1px solid #e0e0dc; border-radius: 10px; padding: 14px; background: #fff; border-top: 4px solid #ccc; }
+  .panel.red { border-top-color: #c8372c; }
+  .panel.blue { border-top-color: #2a5fc8; }
+  .panel h2 { font-size: 13px; margin: 0 0 10px; color: #444; font-weight: 500; }
+  .panel label { display: block; font-size: 12px; color: #777; margin: 8px 0 4px; }
+  .panel input, .panel textarea, .panel select, .settings select {
+    width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 7px 9px;
+    font-size: 13px; font-family: inherit; background: #fafafa; color: #1a1a1a;
+  }
+  .panel textarea { resize: vertical; min-height: 54px; }
+  .settings {
+    border: 1px solid #e0e0dc; border-radius: 10px; padding: 14px; background: #fff;
+    margin-bottom: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .settings label { font-size: 13px; color: #444; margin: 0; }
+  .settings select { width: auto; min-width: 220px; }
+  .genbar { text-align: center; margin: 18px 0; }
+  button {
+    cursor: pointer; border: 1px solid #ccc; background: #fff; color: #1a1a1a;
+    border-radius: 6px; padding: 9px 16px; font-size: 13px;
+  }
+  button:hover { background: #f0f0ee; }
+  #genBtn { background: #1a1a1a; color: #fff; border-color: #1a1a1a; font-size: 14px; padding: 11px 26px; font-weight: bold; }
+  #genBtn:hover { background: #333; }
+  #genBtn:disabled { opacity: 0.5; cursor: default; }
+  .result { border: 1px solid #e0e0dc; border-radius: 10px; padding: 18px; background: #fff; margin-bottom: 16px; display: none; }
+  .result.show { display: block; }
+  .result h3 { font-size: 12px; color: #999; margin: 0 0 6px; font-weight: 500; }
+  .article { white-space: pre-wrap; font-size: 14px; line-height: 1.8; margin: 0 0 16px; }
+  .teaser { white-space: pre-wrap; font-size: 13px; background: #f7f7f5; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+  .factcheck { white-space: pre-wrap; font-size: 13px; background: #fff8ec; border: 1px solid #f0e0bd; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+  .rowbtn { display: flex; gap: 8px; flex-wrap: wrap; }
+  .disclaimer { font-size: 11px; color: #999; margin-top: 14px; line-height: 1.6; }
+  .loading { text-align: center; color: #888; font-size: 13px; margin: 10px 0; display: none; }
+  .loading.show { display: block; }
+  .errorbox { text-align: center; color: #c8372c; font-size: 13px; margin: 10px 0; display: none; }
+  .errorbox.show { display: block; }
+  .history { margin-top: 24px; }
+  .history h3 { font-size: 13px; color: #555; margin-bottom: 8px; }
+  .hitem {
+    border: 1px solid #e5e5e2; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
+    background: #fff; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between; gap: 8px;
+  }
+  .hitem:hover { background: #f7f7f5; }
+  .hitem span.t { color: #999; font-size: 11px; white-space: nowrap; }
+  .empty { color: #999; font-size: 13px; }
+  footer { text-align: center; color: #aaa; font-size: 11px; margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ファンタジーマッチ Ver01</h1>
+  <p class="sub">時代もクラスも違う2人を入力すると、AIが賛否の分かれる架空対戦記事を生成します(何度でも生成可)</p>
+
+  <div class="panels">
+    <div class="panel red">
+      <h2>選手A</h2>
+      <label>選手プリセット</label>
+      <select id="presetA" onchange="applyPreset('A')">
+        <option value="">カスタム入力</option>
+      </select>
+      <label>名前</label>
+      <input type="text" id="nameA" placeholder="例: 全盛期タイソン">
+      <label>階級</label>
+      <select id="classA">
+        <option value="">未指定</option>
+      </select>
+      <label>通算戦績(任意)</label>
+      <input type="text" id="recordA" placeholder="例: 29戦29勝(26KO)0敗">
+      <label>スタンス</label>
+      <select id="stanceA">
+        <option value="">未指定</option>
+        <option value="オーソドックス">オーソドックス</option>
+        <option value="サウスポー">サウスポー</option>
+      </select>
+      <label>身長・リーチ(任意)</label>
+      <input type="text" id="reachA" placeholder="例: 178cm・リーチ180cm">
+      <label>時代・コンテキスト(任意)</label>
+      <input type="text" id="eraA" placeholder="例: 1980年代後半、無敗の絶頂期">
+      <label>スタイル・特徴・実績(任意)</label>
+      <textarea id="styleA" placeholder="例: 圧倒的なインファイト、初回KO率が高い"></textarea>
+    </div>
+    <div class="panel blue">
+      <h2>選手B</h2>
+      <label>選手プリセット</label>
+      <select id="presetB" onchange="applyPreset('B')">
+        <option value="">カスタム入力</option>
+      </select>
+      <label>名前</label>
+      <input type="text" id="nameB" placeholder="例: 現役ヘビー級王者">
+      <label>階級</label>
+      <select id="classB">
+        <option value="">未指定</option>
+      </select>
+      <label>通算戦績(任意)</label>
+      <input type="text" id="recordB" placeholder="例: 27戦25勝(18KO)2敗">
+      <label>スタンス</label>
+      <select id="stanceB">
+        <option value="">未指定</option>
+        <option value="オーソドックス">オーソドックス</option>
+        <option value="サウスポー">サウスポー</option>
+      </select>
+      <label>身長・リーチ(任意)</label>
+      <input type="text" id="reachB" placeholder="例: 165cm・リーチ168cm">
+      <label>時代・コンテキスト(任意)</label>
+      <input type="text" id="eraB" placeholder="例: 2026年現在、王座防衛中">
+      <label>スタイル・特徴・実績(任意)</label>
+      <textarea id="styleB" placeholder="例: リーチを活かしたアウトボクシング"></textarea>
+    </div>
+  </div>
+
+  <div class="settings">
+    <label for="rounds">ラウンド数</label>
+    <select id="rounds">
+      <option value="4">4回戦</option>
+      <option value="6">6回戦</option>
+      <option value="8">8回戦</option>
+      <option value="10" selected>10回戦</option>
+      <option value="12">12回戦(タイトルマッチ想定)</option>
+    </select>
+  </div>
+
+  <div class="genbar">
+    <button id="genBtn" onclick="generate()">対戦をシミュレートする</button>
+  </div>
+  <div class="loading" id="loading">生成中です(記事→投稿文→ファクトチェックの順に処理します)…しばらくお待ちください</div>
+  <div class="errorbox" id="errorbox"></div>
+
+  <div class="result" id="result">
+    <h3>記事</h3>
+    <div class="article" id="articleOut"></div>
+    <h3>X投稿用テキスト</h3>
+    <div class="teaser" id="teaserOut"></div>
+    <h3>ファクトチェック結果(自動)</h3>
+    <div class="factcheck" id="factcheckOut"></div>
+    <div class="rowbtn">
+      <button onclick="copyText('articleOut')">記事をコピー</button>
+      <button onclick="copyText('teaserOut')">投稿文をコピー</button>
+      <button onclick="generate()">別展開でもう一度生成</button>
+    </div>
+    <p class="disclaimer">※これはAIによる架空のシミュレーション記事です。実在の対戦・予想結果ではありません。作成者が考える、両選手の全盛期同士の戦いを想定したものです。自動チェックはあくまで補助です。公開前に必ずご自身でも事実確認をしてください。</p>
+  </div>
+
+  <div class="history">
+    <h3>過去の生成履歴(このブラウザ内のみ保存)</h3>
+    <div id="historyList"><p class="empty">まだ生成履歴はありません。</p></div>
+  </div>
+
+  <footer>ファンタジーマッチ Ver01 — Powered by Claude</footer>
+</div>
+
+<script>
+// ============================================================
+// このAPIエンドポイントは、フロントエンドと同じオリジンで
+// バックエンド(server.js)が動いていることを前提にしています。
+// バックエンドを別ドメインで運用する場合はここを絶対URLに変更してください。
+// 例: const API_ENDPOINT = 'https://your-backend.onrender.com/api/generate';
+// ============================================================
+const API_ENDPOINT = '/api/generate';
+
+const weightClassOrder = ["ミニマム級","ライトフライ級","フライ級","スーパーフライ級","バンタム級","スーパーバンタム級","フェザー級","スーパーフェザー級","ライト級","スーパーライト級","ウェルター級","スーパーウェルター級","ミドル級","スーパーミドル級","ライトヘビー級","クルーザー級","ヘビー級"];
+
+const boxerPresets = [
+  { category: "日本", name: "井上尚弥", weightClass: "スーパーバンタム級", record: "33戦33勝(27KO)0敗", stance: "オーソドックス", reach: "身長165cm・リーチ171cm", era: "現役、WBA・WBC・IBF・WBOスーパーバンタム級統一王者。世界4階級制覇、P4Pランキング1位", style: "オーソドックスながらパンチ力・スピード・テクニック・ディフェンスの全要素が同時にトップレベルという、ボクシング史上でも稀な完成度。ワンツーと左フック・左ボディの精度と破壊力が突出し、滑らかなフットワークと上体さばきで被弾も極端に少ない" },
+  { category: "日本", name: "辰吉丈一郎", weightClass: "バンタム級", record: "28戦20勝(14KO)7敗1分", stance: "オーソドックス", reach: "身長165cm・リーチ不明", era: "元WBC世界バンタム級王者(2階級制覇)、引退。全盛期の爆発力と晩年の苦戦のコントラストが大きい", style: "当時の日本では珍しいガードを下げたスタイルで、パンチ力よりも桁外れのハンドスピードと華麗なコンビネーションで魅せるタイプ。打たれても前に出続ける攻撃的な姿勢と派手なリングパフォーマンスで絶大な人気を誇った" },
+  { category: "日本", name: "村田諒太", weightClass: "ミドル級", record: "19戦16勝(13KO)3敗", stance: "オーソドックス", reach: "身長183cm・リーチ不明", era: "元WBA世界ミドル級スーパー王者、ロンドン五輪金メダリスト。2023年引退", style: "ガードを固めてじわじわ距離を詰め、ボディを効かせてスタミナを奪ってから右ストレートで仕留めるパワー&プレス型。荒削りで手数の少なさを課題とされることもあったが、精神力とパンチ力で頂点に立った" },
+  { category: "日本", name: "井岡一翔", weightClass: "バンタム級", record: "37戦32勝(17KO)4敗1分", stance: "オーソドックス", reach: "身長164cm・リーチ不明", era: "世界4階級制覇王者。2026年5月2日、井上拓真の持つWBC世界バンタム級王座(井上拓真の初防衛戦)に挑戦するも判定(3-0)で敗れ、日本人男子初の5階級制覇はならず", style: "無駄のないフットワークで「打たせず打つ」空間を作る精密機械的なテクニシャン。派手さはないがディフェンス意識・ジャブ・距離の駆け引きに極めて長け、体幹を活かした技術面の完成度で4階級制覇を達成した" },
+  { category: "日本", name: "寺地拳四朗", weightClass: "スーパーフライ級", record: "27戦26勝(16KO)1敗", stance: "オーソドックス", reach: "身長165cm・リーチ164cm", era: "元WBC・WBA世界フライ級統一王者。2025年7月30日、リカルド・サンドバルとの防衛戦に判定(1-2)で敗れ王座から陥落。その後スーパーフライ級に転向し、2026年7月現在は新王座獲得へ向け始動中", style: "手数の多い鋭いパワージャブと接近戦での強烈な左ボディが持ち味。初黒星後はアウトボクシングから接近戦でのパワーファイトへとスタイルを進化させ、相手によって戦い方を変える対応力と、一度当てると連続コンビネーションで仕留める追い込み力に定評がある" },
+  { category: "日本", name: "具志堅用高", weightClass: "ライトフライ級", record: "24戦23勝(15KO)1敗", stance: "サウスポー", reach: "身長162cm・リーチ不明", era: "元WBA世界ライトフライ級王者。日本人世界タイトル13度連続防衛は歴代最多記録", style: "生来のサウスポーで積極的に前へ出るファイタータイプながら、軽やかなステップと堅実な守りも兼ね備えたシュガー・レイ・レナード型のボクサーファイター。安定感のあるボクシングで日本人歴代最多の13度連続防衛を記録した" },
+  { category: "日本", name: "内山高志", weightClass: "スーパーフェザー級", record: "27戦24勝(20KO)2敗1分", stance: "オーソドックス", reach: "身長172cm・リーチ182cm", era: "元WBA世界スーパーフェザー級スーパー王者。日本歴代3位の11回連続防衛", style: "左ジャブでポジションを制圧し続け、弱ったところで強烈な右や左フックで仕留めるアウトボクシング型のパンチャー。ジャブ単体でもKOを奪えるほどの威力を持ち、「ノックアウト・ダイナマイト」の異名通り一撃必殺の破壊力が最大の武器" },
+  { category: "日本", name: "山中慎介", weightClass: "バンタム級", record: "31戦27勝(19KO)2敗2分", stance: "サウスポー", reach: "身長170cm・リーチ174cm", era: "元WBC世界バンタム級王者", style: "変幻自在のフットワークで相手のパンチを空転させながら距離を支配するアウトボクサーで、体幹と下半身の力を拳に伝える「神の左」と呼ばれるストレートが代名詞。顔面・ボディのどこに当たっても相手を沈めるこの一撃で12度の防衛を記録した" },
+  { category: "日本", name: "長谷川穂積", weightClass: "バンタム級", record: "41戦36勝(16KO)5敗", stance: "オーソドックス", reach: "身長・リーチ不明", era: "元WBC世界バンタム級王者、3階級制覇。バンタム級王座10度防衛", style: "超高速の連打と絶妙なタイミングのカウンターを武器にするサウスポーで、当初は手数とディフェンスでポイントを積むスタイルから、王座獲得後は一撃必殺のKOアーティストへと進化した。バンタム級の世界戦12戦中7戦をKOで飾るなど、カウンターの破壊力は屈指" },
+  { category: "日本", name: "西岡利晃", weightClass: "スーパーバンタム級", record: "47戦39勝(24KO)5敗3分", stance: "サウスポー", reach: "身長・リーチ不明", era: "元WBC世界スーパーバンタム級王者", style: "打っては離れるヒットアンドアウェーを得意とするサウスポーのボクサーファイターで、正確な左ストレート「モンスターレフト」が代名詞。ステップワークとハンドスピードを活かし、ジャブ以外の打撃の半分近くをボディに集める緻密な組み立ても持ち味" },
+  { category: "日本", name: "八重樫東", weightClass: "フライ級", record: "35戦28勝(16KO)7敗", stance: "オーソドックス", reach: "身長162cm・リーチ不明", era: "世界3階級制覇王者(日本人男子3人目。WBA世界ミニマム級・WBC世界フライ級・IBF世界ライトフライ級を制覇)", style: "何発被弾しても前に出続ける泥臭い激闘型のボクサーファイターで、驚異的な打たれ強さと粘り強さが最大の武器。視界を奪われるような苦しい展開でも互角以上に渡り合う勝負強さから「激闘王」の異名を持つ" },
+  { category: "日本", name: "亀田興毅", weightClass: "フライ級", record: "35戦33勝(18KO)2敗", stance: "オーソドックス", reach: "身長166cm・リーチ不明", era: "元WBA世界ライトフライ級・WBC世界フライ級・WBA世界バンタム級王者。日本人初の世界3階級制覇", style: "キャリア後半にかけて、荒削りな打ち合いから堅実な守りとカウンターを軸にした打たれないボクシングへとスタイルを変化させたアウトボクサー。派手さより手堅さを重視した堅実さで世界3階級を制した" },
+  { category: "日本", name: "竹原慎二", weightClass: "ミドル級", record: "25戦24勝(18KO)1敗", stance: "オーソドックス", reach: "身長186cm・リーチ不明", era: "元WBA世界ミドル級王者", style: "186cmの恵まれた体格を活かし、右ストレートを起点に左アッパー・左フックへとつなげるパワー重視のスタイル。ミドル級では小柄とされがちな日本人の中で、体格とパワーで世界の頂点に立った" },
+  { category: "日本", name: "畑山隆則", weightClass: "ライト級", record: "29戦24勝(19KO)2敗3分", stance: "オーソドックス", reach: "身長173cm・リーチ不明", era: "元WBA世界スーパーフェザー級/ライト級王者(2階級制覇)", style: "スピードのある連打と抜群のカウンターセンスを持ちながら常に前に出て圧力をかけるファイタータイプ。重いパンチはないが強いハートと展開を読む知力で幾度も劇的なKO勝利を演出し、坂本博之との一戦は日本ボクシング史に残る名勝負とされる" },
+  { category: "日本", name: "堤聖也", weightClass: "バンタム級", record: "16戦13勝(8KO)0敗3分", stance: "オーソドックス", reach: "身長166cm・リーチ164cm(スイッチヒッターで左右自在に構える)", era: "現WBA世界バンタム級休養王者。2024年10月に井上拓真を破り王座獲得、2025年2月には比嘉大吾との防衛戦を引き分けで乗り切り、2025年12月には元5階級制覇王者ノニト・ドネアを2-1判定で下し2度目の防衛に成功。鼻骨骨折等の負傷により2026年5月31日付で2度目の休養王者認定を受けた", style: "左右の構えを自在に操るスイッチヒッターで、手数の多さと無尽蔵のスタミナ、苦しい展開でも崩れないハートの強さが持ち味。中盤劣勢からでも逆転する勝負強さで数々の激戦を制してきた" },
+  { category: "日本", name: "中谷潤人", weightClass: "バンタム級", record: "33戦32勝(24KO)1敗", stance: "サウスポー", reach: "身長172cm・リーチ170cm", era: "元WBO世界フライ級/スーパーフライ級王者。2024年2月にWBC世界バンタム級を奪取し世界3階級制覇を達成。2025年6月にはIBF王者・西田凌佑を破りWBC・IBF世界バンタム級を統一。2026年5月2日、階級を上げて井上尚弥の統一王座に挑んだスーパーバンタム級タイトルマッチで3-0の判定により初黒星", style: "軽量級離れした身長とリーチを誇るサウスポーで、鋭いリードジャブとストレートを軸にした攻撃的なアウトボクシングが持ち味。「日本人にないパンチの角度」と評される見えづらいアッパーやオーバーパンチも武器で、KO率75%の高い決着力を誇る" },
+  { category: "日本", name: "那須川天心", weightClass: "バンタム級", record: "9戦8勝(3KO)1敗", stance: "サウスポー", reach: "身長165cm・リーチ176cm(時にスイッチで構えを変える)", era: "元キックボクシング無敗王者(42戦42勝)。2023年にプロボクシングへ転向。2025年11月に井上拓真とのWBC世界バンタム級王座決定戦で判定負けを喫しプロ初黒星も、2026年4月に元2階級制覇王者ファン・フランシスコ・エストラーダをTKOで下し再起、井上拓真への挑戦権を獲得", style: "キック時代から培った卓越した動体視力と反射神経で相手の攻撃を「0.1秒先に読む」独自の格闘IQが持ち味。基本はサウスポーだが時にスイッチも見せ、鋭い左ストレート「ライトニング・レフト」を軸にした攻防一体の戦術で相手を翻弄する" },
+  { category: "海外(現役)", name: "Tyson Fury", weightClass: "ヘビー級", record: "38戦35勝2敗1分(24KO)", stance: "オーソドックス", reach: "身長206cm・リーチ216cm", era: "現役ヘビー級、元4団体統一王者。波乱の多いキャリアで浮き沈みが激しく、2026年4月にはArslanbek Makhmudovに判定勝ちして現役続行中", style: "巨体に似合わぬ卓越したフットワークとフェイントを駆使し、常に角度と距離を変え続けるセンス抜群のアウトボクサー。腰の高さから多彩に変化させるジャブと高度なヘッドムーブメントで、規格外の体格ながら繊細な技術戦を展開する" },
+  { category: "海外(現役)", name: "Oleksandr Usyk", weightClass: "ヘビー級", record: "25戦25勝0敗(16KO)", stance: "サウスポー", reach: "身長191cm・リーチ198cm", era: "現役、元4団体統一ヘビー級王者(2026年6月に王座返上)。無敗を継続中", style: "右利きながらサウスポーを選択し、滑らかなフットワークとピボットで相手の勝手を封じる技巧派。パンチを避けた直後に右へピボットして角度を作り、正確なジャブとコンビネーションで的確にポイントを積み上げる" },
+  { category: "海外(現役)", name: "Canelo Alvarez", weightClass: "スーパーミドル級", record: "68戦63勝3敗2分(39KO)", stance: "オーソドックス", reach: "身長171cm・リーチ179cm", era: "現役、複数階級制覇王者。2025年9月にクロフォードに判定負け", style: "フェイントと角度でカウンターを狙う守備意識の高いスタイルで、序盤からボディを執拗に攻めて相手のガードを下げさせ、終盤に左フックのレバーブローで仕留めるのが得意なパターン。無駄弾を撃たない経済的な組み立てが持ち味" },
+  { category: "海外(現役)", name: "Terence Crawford", weightClass: "スーパーウェルター級", record: "42戦42勝0敗(31KO)", stance: "サウスポー", reach: "身長173cm・リーチ188cm", era: "2025年12月引退、無敗のP4P上位選手。2025年9月にカネロを判定で撃破", style: "オーソドックスとサウスポーを試合の流れの中で自在に切り替え、防御が崩れた瞬間に角度を変えて差し込むスイッチヒッター。肘を張った独特のガードで広い視野を確保し、罠を張ってから仕留める我慢強いカウンター型" },
+  { category: "海外(現役)", name: "Gervonta Davis", weightClass: "ライト級", record: "31戦30勝1分(28KO)", stance: "サウスポー", reach: "身長166cm・リーチ171cm", era: "ライト級の強打者。2026年1月、家庭内暴力容疑での逮捕状発付を受けWBAライト級王座を剥奪(暫定的な「休養王者」扱い)され、係争中", style: "サウスポーの構えから短く鋭いパンチでフィニッシュする省エネ型のパンチャーで、脚のバネを使って至近距離から爆発的なパワーを生み出す。左のボディブローでガードを下げさせてから頭部への一撃を狙う組み立てにも長ける" },
+  { category: "海外(現役)", name: "Anthony Joshua", weightClass: "ヘビー級", record: "33戦29勝4敗(27KO)", stance: "オーソドックス", reach: "身長198cm・リーチ208cm", era: "現役ヘビー級、元統一王者。2025年12月にジェイク・ポールを6回KOで下し、2026年7月にはKristian Prengaとの対戦を予定", style: "恵まれた体格とタイミングの良いジャブでオーバーハンドの右を叩き込むパワー系だが、強度が上がると急激にスタミナが落ちる傾向がある。ウシクとの2戦では自らの体格・パワーを活かしきれず、慣れないアウトボクシングに走って苦戦した経緯がある" },
+  { category: "海外(現役)", name: "Dmitry Bivol", weightClass: "ライトヘビー級", record: "26戦25勝1敗(12KO)", stance: "オーソドックス", reach: "身長183cm・リーチ183cm", era: "現役ライトヘビー級統一王者。2024年10月の初対戦でアルトゥール・ベテルビエフに敗れるも、2025年2月の再戦を制して雪辱を果たし統一王座を奪取。2026年5月にはMichael Eifertを判定で下し防衛", style: "旧ソ連仕込みの規律あるアウトボクシングが持ち味で、卓越したジャブとハイガードの防御を軸に試合のペースを完全に支配する。緩急を織り交ぜたリズムの変化で相手のタイミングを狂わせる" },
+  { category: "海外(現役)", name: "David Benavidez", weightClass: "クルーザー級", record: "33戦33勝0敗(27KO)", stance: "オーソドックス", reach: "身長184cm・リーチ189cm", era: "スーパーミドル級・ライトヘビー級を経て、2026年5月にジルベルト・ラミレスを6回KOで下しWBA・WBOクルーザー級王座を奪取し3階級制覇", style: "メキシカンスタイルを軸に接近戦での連打とプレッシャーで相手を圧倒する一方、恵まれた身長とリーチを活かして距離を取った展開もこなせる万能型。ジャブで距離を管理しながら強烈なコンビネーションにつなげる" },
+  { category: "海外(現役)", name: "Artur Beterbiev", weightClass: "ライトヘビー級", record: "22戦21勝1敗(20KO)", stance: "オーソドックス", reach: "身長182cm・リーチ186cm", era: "元ライトヘビー級統一王者。2024年10月にドミトリー・ビボルとの初対戦を制すも、2025年2月の再戦で敗れ王座を失う。以降実戦から離れており、3戦目の交渉が続く", style: "旧ソ連スタイルの堅い構えと正確な距離感で相手を誘い、コミットさせたところをカウンターで仕留める。ジャブ・フック・アッパーいずれも一級品で、下半身から連動させた回転力による破壊的な一撃が代名詞" },
+  { category: "海外(現役)", name: "Vasyl Lomachenko", weightClass: "ライト級", record: "21戦18勝3敗(12KO)", stance: "サウスポー", reach: "身長170cm・リーチ166cm", era: "元3階級制覇王者。2025年6月に引退を表明したが、契約満了を機に2026年秋の復帰(エマヌエル・ナバレテ戦が有力)を目指し現役続行の意向", style: "民族舞踊仕込みの独特なステップで相手の死角に回り込みながら連打を浴びせる「マトリックス」スタイル。パンチを避けると同時に角度を作り出す唯一無二の動きで、相手には「幽霊と戦っているようだ」と評される" },
+  { category: "海外(現役)", name: "Devin Haney", weightClass: "ウェルター級", record: "34戦33勝0敗(15KO)1無効試合", stance: "オーソドックス", reach: "身長175cm・リーチ181cm", era: "現役、複数階級制覇の無敗王者。2024年4月のライアン・ガルシア戦は当初敗戦扱いだったがガルシアのドーピング陽性により無効試合に変更。2025年11月にブライアン・ノーマン・ジュニアを判定で下しWBOウェルター級王座を獲得、3階級制覇", style: "命中率の高いジャブで距離を完全に支配し、豊富なボクシングIQで相手を研究し尽くしてから試合に臨むテクニシャン。ヘッドムーブメントと巧みなポジショニングでパンチの半分近くを回避する堅実な守備も持ち味" },
+  { category: "海外(現役)", name: "Errol Spence Jr", weightClass: "ウェルター級", record: "29戦28勝1敗(22KO)", stance: "サウスポー", reach: "身長176cm・リーチ183cm", era: "2023年7月にテレンス・クロフォードに敗れて以来長期休養していたが、2026年7月にティム・ツェズーとの一戦(スーパーウェルター級)を予定し復帰を目指す", style: "我慢強く距離を詰め、相手をロープに詰めてからコンビネーションを叩き込むボクサーパンチャー。サウスポーのジャブとボディへの正確な打撃で相手のスタミナと防御を同時に削っていく" },
+  { category: "海外(現役)", name: "Keith Thurman", weightClass: "ウェルター級", record: "33戦31勝2敗(23KO)", stance: "オーソドックス", reach: "身長171cm・リーチ175cm", era: "元WBA世界ウェルター級統一王者。2026年3月、階級を上げて挑んだセバスチャン・フンドラとのスーパーウェルター級タイトル戦で6回TKO負けを喫し、自身初のストップ負けとなった", style: "パンチャーとして頭角を現しながらも試合巧者へと成長し、相手のリード手と同じ側を狙って合わせるカウンターと、追ってくる相手を仕留める裏拳気味のライジングアッパーを得意とする。ハンドスピードと戦術眼を兼ね備えたボクサーパンチャー" },
+  { category: "海外(現役)", name: "Jermell Charlo", weightClass: "スーパーウェルター級", record: "38戦35勝2敗1分(19KO)", stance: "オーソドックス", reach: "身長180cm・リーチ186cm", era: "元統一世界スーパーウェルター級王者", style: "少ない手数で正確に強打を当てる効率重視のスタイルで、脚から腰、肩へと力を連動させる打撃メカニクスに優れる。ステップインからのワンツーとピボットで距離を管理し、鋭いスリップから合わせるカウンターも武器" },
+  { category: "レジェンド", name: "Mike Tyson", weightClass: "ヘビー級", record: "58戦50勝6敗2無効試合(44KO)", stance: "オーソドックス", reach: "身長178cm・リーチ180cm", era: "1980年代後半〜90年代前半が全盛期。史上最年少でヘビー級王座を獲得", style: "カス・ダマトが考案した「ピーカブー」スタイルの体現者で、高いガードと絶え間ない上体の動きで接近しながら、スリップ・フック・アッパーのコンビネーションを一瞬で叩き込む。相手のパンチをかわしながら踏み込んで角度を変える「シフトスイッチ」も代名詞" },
+  { category: "レジェンド", name: "Muhammad Ali", weightClass: "ヘビー級", record: "61戦56勝5敗(37KO)", stance: "オーソドックス", reach: "身長191cm・リーチ198cm", era: "1960〜70年代に活躍した3階級制覇王者", style: "重心の高い独特のフットワーク「アリ・シャッフル」で距離を自在に操り、電光石火のジャブで相手を翻弄する規格外のヘビー級。型にとらわれない予測不能な動きと駆け引きで、当時の常識を覆した" },
+  { category: "レジェンド", name: "Manny Pacquiao", weightClass: "ウェルター級", record: "73戦62勝8敗3分(39KO)", stance: "サウスポー", reach: "身長166cm・リーチ170cm", era: "史上唯一の8階級制覇王者。フィリピンの国民的英雄", style: "小さな歩幅で相手の警戒を解いてから一気に間合いを詰め、5〜6連打を浴びせて角度をつけて離脱する高速コンビネーション型。全身の連動から生まれるパワーと、フレディ・ローチ指導以降に磨いた右の脅威度が両輪" },
+  { category: "レジェンド", name: "Floyd Mayweather Jr", weightClass: "ウェルター級", record: "50戦50勝0敗(27KO)", stance: "オーソドックス", reach: "身長173cm・リーチ183cm", era: "無敗のまま引退。史上屈指のディフェンス技術を誇る", style: "「フィリーシェル」を発展させた独自のショルダーロールで、リード肩で顔面を隠しながら相手のパンチをいなし、空いた利き手でカウンターを返す守備の芸術。無駄弾を撃たず的確な一撃で勝負を決める経済的なスタイル" },
+  { category: "レジェンド", name: "Sugar Ray Robinson", weightClass: "ミドル級", record: "201戦174勝19敗6分・2NC(109KO)", stance: "オーソドックス", reach: "身長180cm・リーチ184cm", era: "1940〜50年代に活躍。しばしば史上最高のP4Pボクサーとされる", style: "アウトボクシングもインファイトもカウンターも高いレベルでこなせる万能型で、緩急をつけたリズムの変化で相手を翻弄してから一気に畳み掛けるコンビネーションを得意とする。後年のシュガー・レイ・レナードやロイ・ジョーンズJr.にも影響を与えた" },
+  { category: "レジェンド", name: "Joe Louis", weightClass: "ヘビー級", record: "69戦66勝3敗(52KO)", stance: "オーソドックス", reach: "身長187cm・リーチ193cm", era: "1930〜40年代のヘビー級王者。「ブラウンボンバー」として知られる", style: "無駄のない5〜6連打のコンビネーションを正確に打ち込む完成度の高いボクサーパンチャーで、わずかな歩幅の調整で最適な距離を計りながら、鋭く短い右クロスで仕留める。ガードを高く肘を締めた基本に忠実なフォームが持ち味" },
+  { category: "レジェンド", name: "Rocky Marciano", weightClass: "ヘビー級", record: "49戦49勝0敗(43KO)", stance: "オーソドックス", reach: "身長179cm・リーチ173cm", era: "1950年代、無敗のままヘビー級王座を退いた唯一の選手", style: "小柄な体格を逆手に取った深いクラウチングスタイルで的を小さくし、接近戦から「スージーQ」と呼ばれたオーバーハンドの右を絶え間なく浴びせる。並外れたスタミナと打たれ強さを武器に前進を止めなかった" },
+  { category: "レジェンド", name: "George Foreman", weightClass: "ヘビー級", record: "81戦76勝5敗(68KO)", stance: "オーソドックス", reach: "身長191cm・リーチ199cm", era: "1970年代と90年代、二度のヘビー級王座獲得", style: "コーナーに詰めてフックとアッパーで畳み掛けるマウリング型のパワーファイターで、現役復帰後はガードを固め、力を抜いた省エネなパンチでスタミナを温存するスタイルに進化。それでも一撃の破壊力は健在で、45歳での王座奪還につながった" },
+  { category: "レジェンド", name: "Evander Holyfield", weightClass: "ヘビー級", record: "56戦44勝10敗2分(29KO)", stance: "オーソドックス", reach: "身長189cm・リーチ198cm", era: "4度のヘビー級統一王者経験、クルーザー級も制覇", style: "パワー・スピード・スタミナをバランスよく兼ね備えたオールラウンダーで、相手や局面によって戦い方を柔軟に変える対応力が持ち味。左フックと絶え間ない動きで相手を消耗させながら、粘り強く決定打を狙う" },
+  { category: "レジェンド", name: "Lennox Lewis", weightClass: "ヘビー級", record: "44戦41勝2敗1分(32KO)", stance: "オーソドックス", reach: "身長196cm・リーチ213cm", era: "1990年代を代表する統一ヘビー級王者", style: "213cmという規格外のリーチを活かしたジャブでレンジをコントロールし、そこから強烈な右ストレートにつなげるアウトボクシング型。エマニュエル・スチュワード指導下で技術に磨きをかけ、ヘビー級離れしたフットワークと戦術眼を身につけた" },
+  { category: "レジェンド", name: "Wladimir Klitschko", weightClass: "ヘビー級", record: "69戦64勝5敗(53KO)", stance: "オーソドックス", reach: "身長198cm・リーチ206cm", era: "2000年代に長期政権を築いた統一ヘビー級王者", style: "半伸ばしにしたジャブで距離を支配し続け、相手が近づけばクリンチで仕事をさせないヨーロピアンスタイル。堅実なワンツーとリスク管理を徹底し、長期政権を築いた" },
+  { category: "レジェンド", name: "Vitali Klitschko", weightClass: "ヘビー級", record: "47戦45勝2敗(41KO)", stance: "オーソドックス", reach: "身長201cm・リーチ203cm", era: "2000年代のWBC世界ヘビー級王者", style: "203cmの規格外のリーチを活かし、ジャブで相手を寄せ付けず必殺の右ストレートを狙う東欧スタイルのボクサーパンチャー。フェイントと下がる動きを組み合わせた「フェイズドアタック」で相手の反撃を無力化する" },
+  { category: "レジェンド", name: "Marvin Hagler", weightClass: "ミドル級", record: "67戦62勝2敗2分(52KO)", stance: "オーソドックス", reach: "身長177cm・リーチ191cm(右利きだが元来サウスポーで、試合中に両構えを使い分けた)", era: "1980年代のミドル級を支配した統一王者", style: "右利きながらサウスポーで鍛えられ、オーソドックスとサウスポーを試合中に切り替えて相手の逃げ場を塞ぐ規律あるプレッシャー型。切り替えは見せ場作りではなく、角度とポジションを崩すための実戦的な武器だった" },
+  { category: "レジェンド", name: "Sugar Ray Leonard", weightClass: "ウェルター級", record: "40戦36勝3敗1分(25KO)", stance: "オーソドックス", reach: "身長175cm・リーチ不明(出典により179〜188cmと差異あり)", era: "5階級制覇を果たしたウェルター級の顔役", style: "華麗なフットワークとスピードで相手を翻弄し、4〜6連打のコンビネーションで確実にポイントを重ねるテクニシャン。観客を沸かせるパフォーマンス性も兼ね備えた稀代のエンターテイナー" },
+  { category: "レジェンド", name: "Roberto Duran", weightClass: "ライト級", record: "119戦103勝16敗(70KO)", stance: "オーソドックス", reach: "身長170cm・リーチ168cm", era: "「ハンズ・オブ・ストーン」の異名を持つ4階級制覇王者", style: "接近戦で相手の腕をコントロールしながら内側から破壊する「ハンズ・オブ・ストーン」。片手で殴りながらもう片方の手で相手の腕を抑え込むなど際どい駆け引きにも長けたインファイトの達人で、実はアウトボクシングもこなす万能さを持つ" },
+  { category: "レジェンド", name: "Thomas Hearns", weightClass: "ウェルター級", record: "67戦61勝5敗1分(48KO)", stance: "オーソドックス", reach: "身長185cm・リーチ198cm", era: "5階級制覇を果たした「ヒットマン」", style: "185cmの長身とリーチを活かしたロングレンジのスナイパーで、ジャブを長く突き出して視界を遮ってから隠れた右クロスを叩き込む。序盤から次々とKOを重ねた強烈な右ストレートが代名詞" },
+  { category: "レジェンド", name: "Bernard Hopkins", weightClass: "ミドル級", record: "65戦55勝8敗2分(32KO)", stance: "オーソドックス", reach: "身長185cm・リーチ191cm", era: "ミドル級・ライトヘビー級で活躍した「エグゼキューショナー」", style: "キャリア後半は「フィリーシェル」を用いた老獪な技巧派へと進化し、頭の位置とタイミングで相手を焦らしながら試合のペースを完全に支配する。40代後半まで世界トップで戦い続けた駆け引きの巧さが最大の武器" },
+  { category: "レジェンド", name: "Gennady Golovkin", weightClass: "ミドル級", record: "45戦42勝2敗1分(37KO)", stance: "オーソドックス", reach: "身長179cm・リーチ178cm", era: "2010年代のミドル級を支配した統一王者", style: "重い一発を持ちながらも正確なジャブで距離とリズムを支配するカザフスタイルの体現者で、角度を変えながら打つパンチで的を絞らせない。中間距離での破壊力あるパンチと高いKO率が代名詞" },
+  { category: "レジェンド", name: "Roy Jones Jr", weightClass: "ライトヘビー級", record: "76戦66勝10敗(47KO)", stance: "オーソドックス", reach: "身長180cm・リーチ188cm", era: "1990年代のP4P王者、4階級制覇", style: "ガードを下げて相手を誘い、常識外れの反射神経とハンドスピードでかわしながら様々な角度からカウンターを叩き込む異色のスタイル。オーソドックスとサウスポーを頻繁に切り替え、リスクと引き換えに規格外の攻撃力を発揮した" },
+  { category: "レジェンド", name: "Oscar De La Hoya", weightClass: "ウェルター級", record: "45戦39勝6敗(30KO)", stance: "オーソドックス", reach: "身長179cm・リーチ186cm", era: "6階級制覇の「ゴールデンボーイ」", style: "強烈な左ジャブを軸に、相手のガードが下がった瞬間を逃さず左フックを叩き込むオールラウンダー。リズミカルなフットワークで角度を作りながら攻守を組み立てる完成度の高さで「ゴールデンボーイ」と呼ばれた" },
+  { category: "レジェンド", name: "Pernell Whitaker", weightClass: "ライト級", record: "46戦40勝4敗1分1無効試合(17KO)", stance: "サウスポー", reach: "身長168cm・リーチ175cm", era: "4階級制覇の守備の達人「スイート・ピー」", style: "サウスポーからフィリーシェルとショルダーロールを操り、相手にほとんど何も当てさせない守備の芸術家。強打はないが卓越した駆け引きとカウンターで格上の相手をも翻弄した" },
+  { category: "レジェンド", name: "Julio Cesar Chavez", weightClass: "ライト級", record: "115戦107勝6敗2分(85KO)", stance: "オーソドックス", reach: "身長171cm・リーチ173cm", era: "13年11ヶ月無敗を誇った3階級制覇王者", style: "鉄の顎と尽きないスタミナを武器に、リング中央を制圧しながらボディを執拗に攻め続けるメキシカンスタイルの代名詞的存在。相手を後退させず絶え間ないプレッシャーで消耗させ、13年以上の無敗街道を築いた" },
+  { category: "レジェンド", name: "Erik Morales", weightClass: "フェザー級", record: "61戦52勝9敗(36KO)", stance: "オーソドックス", reach: "身長170cm・リーチ183cm", era: "4階級制覇、バレラとの三部作で知られる「エル・テリブレ」", style: "被弾を恐れず打ち合う勇猛なメキシカンスタイルのファイターで、圧倒的な手数と前進を止めない気迫が持ち味。バレラとの三部作では両者合わせて1試合1800発を超えるパンチが飛び交うほどの激しい打ち合いを演じた" },
+  { category: "レジェンド", name: "Marco Antonio Barrera", weightClass: "フェザー級", record: "74戦67勝7敗(44KO)", stance: "オーソドックス", reach: "身長168cm・リーチ178cm", era: "3階級制覇の「ベイビーフェイス・アサシン」", style: "前半生の猛烈な打ち合いから、後半生はフットワークとカウンターを駆使する技巧派へと進化した稀有な選手。接近戦での正確な左フックのボディ打ちと、相手の攻めを逆手に取るカウンターセンスが持ち味" },
+  { category: "レジェンド", name: "Juan Manuel Marquez", weightClass: "ライト級", record: "64戦56勝7敗1分(40KO)", stance: "オーソドックス", reach: "身長170cm・リーチ171cm", era: "4階級制覇、パッキャオとの4連戦で有名", style: "相手の空振りを的確に読んでカウンターで仕留める、ボクシング史屈指の精密なカウンターパンチャー。パッキャオ戦では常に左へステップしてジャブの軌道を外し、罠にかけてからライトのカウンターで沈める駆け引きを見せた" },
+  { category: "レジェンド", name: "Carlos Monzon", weightClass: "ミドル級", record: "100戦87勝3敗9分1無効(59KO)", stance: "オーソドックス", reach: "身長181cm・リーチ193cm", era: "1970年代を支配したミドル級王者", style: "181cm・リーチ193cmという規格外の長身を活かし、ジャブで中間距離を支配しながら、クリンチや体の絞り方で相手の攻めを完全に無力化する冷徹な組み立て。一発の精度と破壊力も高く、機を見て一気にコンビネーションで畳み掛けた" },
+  { category: "レジェンド", name: "Jake LaMotta", weightClass: "ミドル級", record: "106戦83勝19敗4分(30KO)", stance: "オーソドックス", reach: "身長173cm・リーチ170cm", era: "「レイジング・ブル」と呼ばれたミドル級王者", style: "常に間合いを詰めて接近戦に持ち込む「スウォーマー」型で、自ら被弾することを厭わず前へ出続ける闘争心が最大の武器。並外れた顎の強さで打たれ続けても崩れない耐久力を誇った" },
+  { category: "レジェンド", name: "Alexis Arguello", weightClass: "ライト級", record: "85戦77勝8敗(62KO)", stance: "オーソドックス", reach: "身長178cm・リーチ183cm", era: "3階級制覇の「エル・フラコ・エクスプロシーボ」", style: "178cm・リーチ183cmという当時のフェザー級離れした体格を活かし、正確な左ジャブと右クロスを打ち下ろすヨーロピアン風の直線的なスタイル。強打者でありながらデュランのような荒々しさはなく、ジョー・ルイスに近い理知的な圧力で相手を追い詰めた" },
+  { category: "レジェンド", name: "Salvador Sanchez", weightClass: "フェザー級", record: "46戦44勝1敗1分(32KO)", stance: "オーソドックス", reach: "身長168cm・リーチ173cm", era: "早世の天才、WBC世界フェザー級王者", style: "チェスの駒を進めるように冷静にリングを支配し、相手を分析しながら的確なカウンターで仕留める完成度の高いテクニシャン。若くして数々の殿堂入り選手を撃破した安定した足元とバランスが技術の土台" },
+  { category: "レジェンド", name: "Wilfredo Gomez", weightClass: "スーパーバンタム級", record: "48戦44勝3敗1分(42KO)", stance: "オーソドックス", reach: "身長166cm・リーチ169cm", era: "3階級制覇の「バズーカ」", style: "強烈な右ストレートと左フックを武器にするオーソドックスの強打者で、44勝中42勝がKOという驚異的な決着率を誇る。ジュニアフェザー級では17連続KO防衛を記録するなど、パンチ力だけでなく戦術面でも一級品だった" },
+  { category: "レジェンド", name: "Archie Moore", weightClass: "ライトヘビー級", record: "186勝23敗10分(132KO)(記録散逸のため出典により総試合数に差異あり)", stance: "オーソドックス", reach: "身長180cm・リーチ191cm", era: "史上最多とされるKO勝利数を誇るライトヘビー級最長政権王者", style: "「クラブスタイル」と呼ばれる特殊なクロスアームガードを駆使し、右腕で顔面を、左腕で腹部を守りながら視野を確保する老獪な守備の達人。長いキャリアで培った駆け引きの巧さで、体力の衰えを補いながら勝ち続けた" },
+  { category: "レジェンド", name: "Aaron Pryor", weightClass: "スーパーライト級", record: "40戦39勝1敗(35KO)", stance: "オーソドックス", reach: "身長168cm・リーチ175cm", era: "1980年代のジュニアウェルター級を支配した「ホーク」", style: "ジャブをほとんど使わず、屈んだ姿勢からいきなり右を打ち込む型破りなスタイルで、オーソドックスとサウスポーを頻繁に切り替えて相手を混乱させる。「ホーク」の異名通り、休むことなく連打を浴びせ続ける圧倒的なスタミナが最大の武器" }
+];
+
+function buildPresetSelect(id){
+  const sel = document.getElementById(id);
+  const categories = ["日本", "海外(現役)", "レジェンド"];
+  categories.forEach(function(cat){
+    const group = document.createElement('optgroup');
+    group.label = cat;
+    boxerPresets.forEach(function(p, idx){
+      if (p.category === cat){
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = p.name;
+        group.appendChild(opt);
+      }
+    });
+    sel.appendChild(group);
+  });
+}
+
+function buildClassSelect(id){
+  const sel = document.getElementById(id);
+  weightClassOrder.forEach(function(wc){
+    const opt = document.createElement('option');
+    opt.value = wc;
+    opt.textContent = wc;
+    sel.appendChild(opt);
+  });
+}
+
+function applyPreset(corner){
+  const sel = document.getElementById('preset' + corner).value;
+  if (sel === '') return;
+  const p = boxerPresets[parseInt(sel, 10)];
+  if (!p) return;
+  document.getElementById('name' + corner).value = p.name;
+  document.getElementById('class' + corner).value = p.weightClass || '';
+  document.getElementById('record' + corner).value = p.record;
+  document.getElementById('stance' + corner).value = p.stance;
+  document.getElementById('reach' + corner).value = p.reach;
+  document.getElementById('era' + corner).value = p.era;
+  document.getElementById('style' + corner).value = p.style;
+}
+
+const HISTORY_KEY = 'fantasy_matchup_history_v01';
+
+function loadHistory(){
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch(e){ return []; }
+}
+function saveHistory(list){
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 20)));
+}
+function renderHistory(){
+  const list = loadHistory();
+  const el = document.getElementById('historyList');
+  if (!list.length){
+    el.innerHTML = '<p class="empty">まだ生成履歴はありません。</p>';
+    return;
+  }
+  el.innerHTML = '';
+  list.forEach((item) => {
+    const div = document.createElement('div');
+    div.className = 'hitem';
+    div.onclick = () => showResult(item.article, item.teaser, item.factcheck);
+    const d = new Date(item.ts);
+    div.innerHTML = '<span>' + item.nameA + ' vs ' + item.nameB + (item.rounds ? ' (' + item.rounds + '回戦)' : '') + '</span><span class="t">' +
+      (d.getMonth()+1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + '</span>';
+    el.appendChild(div);
+  });
+}
+
+function showResult(article, teaser, factcheck){
+  document.getElementById('articleOut').textContent = article;
+  document.getElementById('teaserOut').textContent = teaser;
+  document.getElementById('factcheckOut').textContent = factcheck || '(未実施)';
+  document.getElementById('result').classList.add('show');
+  document.getElementById('result').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function showError(msg){
+  const box = document.getElementById('errorbox');
+  box.textContent = msg;
+  box.classList.add('show');
+}
+function clearError(){
+  const box = document.getElementById('errorbox');
+  box.textContent = '';
+  box.classList.remove('show');
+}
+
+async function generate(){
+  const nameA = document.getElementById('nameA').value.trim();
+  const nameB = document.getElementById('nameB').value.trim();
+  const rounds = document.getElementById('rounds').value;
+
+  if (!nameA || !nameB){
+    alert('選手Aと選手Bの名前を入力してください');
+    return;
+  }
+
+  const payload = {
+    nameA, nameB, rounds,
+    classA: document.getElementById('classA').value,
+    classB: document.getElementById('classB').value,
+    recordA: document.getElementById('recordA').value.trim(),
+    recordB: document.getElementById('recordB').value.trim(),
+    stanceA: document.getElementById('stanceA').value.trim(),
+    stanceB: document.getElementById('stanceB').value.trim(),
+    reachA: document.getElementById('reachA').value.trim(),
+    reachB: document.getElementById('reachB').value.trim(),
+    eraA: document.getElementById('eraA').value.trim(),
+    eraB: document.getElementById('eraB').value.trim(),
+    styleA: document.getElementById('styleA').value.trim(),
+    styleB: document.getElementById('styleB').value.trim()
+  };
+
+  const genBtn = document.getElementById('genBtn');
+  const loading = document.getElementById('loading');
+  genBtn.disabled = true;
+  loading.classList.add('show');
+  clearError();
+  document.getElementById('result').classList.remove('show');
+
+  try {
+    const res = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.status === 429){
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'リクエストが多すぎます。しばらく待ってから再度お試しください。');
+    }
+    if (!res.ok){
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || ('サーバーエラー(status ' + res.status + ')'));
+    }
+
+    const data = await res.json();
+    showResult(data.article, data.teaser, data.factcheck);
+
+    const history = loadHistory();
+    history.unshift({ nameA, nameB, article: data.article, teaser: data.teaser, factcheck: data.factcheck, rounds, ts: Date.now() });
+    saveHistory(history);
+    renderHistory();
+  } catch (err){
+    showError('生成に失敗しました: ' + (err && err.message ? err.message : '不明なエラー'));
+  } finally {
+    genBtn.disabled = false;
+    loading.classList.remove('show');
+  }
+}
+
+function copyText(id){
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    alert('コピーしました');
+  }).catch(() => {
+    alert('コピーに失敗しました');
+  });
+}
+
+buildPresetSelect('presetA');
+buildPresetSelect('presetB');
+buildClassSelect('classA');
+buildClassSelect('classB');
+renderHistory();
+</script>
+</body>
+</html>
