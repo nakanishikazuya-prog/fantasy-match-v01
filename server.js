@@ -119,14 +119,19 @@ function buildKobayashiBlock(nameA, nameB, classA, classB, diff) {
   ].join('\n');
 }
 
-async function callClaude(prompt) {
+async function callClaude(prompt, maxTokens) {
   const res = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 2000,
+    max_tokens: maxTokens || 4096,
     messages: [{ role: 'user', content: prompt }]
   });
   const block = res.content && res.content[0];
-  return block && block.type === 'text' ? block.text.trim() : '';
+  let text = block && block.type === 'text' ? block.text.trim() : '';
+  // 上限で本文が途中で切れてしまった場合、それと分かるよう明記する(無言で切れた記事を公開してしまうのを防ぐため)
+  if (res.stop_reason === 'max_tokens') {
+    text += '\n\n[※文字数上限により、この続きが生成されていません。お手数ですが「別展開でもう一度生成」を試してください]';
+  }
+  return text;
 }
 
 function buildArticlePrompt(input, classRule) {
@@ -261,13 +266,13 @@ app.post('/api/generate', rateLimit, async (req, res) => {
       classRule = '- 階級が不明なため、入力された戦績・体格・スタイルの情報から実力差を判断すること';
     }
 
-    let article = await callClaude(buildArticlePrompt(input, classRule));
+    let article = await callClaude(buildArticlePrompt(input, classRule), 4096);
     article = sanitizeBannedWords(article);
 
-    let teaser = await callClaude(buildTeaserPrompt(article));
+    let teaser = await callClaude(buildTeaserPrompt(article), 512);
     teaser = sanitizeBannedWords(teaser);
 
-    const factcheck = await callClaude(buildFactcheckPrompt(input, article));
+    const factcheck = await callClaude(buildFactcheckPrompt(input, article), 1024);
 
     res.json({ blocked: false, article, teaser, factcheck });
   } catch (err) {
