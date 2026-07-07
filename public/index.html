@@ -51,6 +51,8 @@
   .teaser { white-space: pre-wrap; font-size: 13px; background: #f7f7f5; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
   .factcheck { white-space: pre-wrap; font-size: 13px; background: #fff8ec; border: 1px solid #f0e0bd; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
   .rowbtn { display: flex; gap: 8px; flex-wrap: wrap; }
+  .xshare { background: #000; color: #fff; border-color: #000; }
+  .xshare:hover { background: #222; }
   .disclaimer { font-size: 11px; color: #999; margin-top: 14px; line-height: 1.6; }
   .loading { text-align: center; color: #888; font-size: 13px; margin: 10px 0; display: none; }
   .loading.show { display: block; }
@@ -157,6 +159,7 @@
     <div class="rowbtn">
       <button onclick="copyText('articleOut')">記事をコピー</button>
       <button onclick="copyText('teaserOut')">投稿文をコピー</button>
+      <button onclick="shareOnX()" class="xshare">𝕏でシェアする</button>
       <button onclick="generate()">別展開でもう一度生成</button>
     </div>
     <p class="disclaimer">※これはAIによる架空のシミュレーション記事です。実在の対戦・予想結果ではありません。作成者が考える、両選手の全盛期同士の戦いを想定したものです。自動チェックはあくまで補助です。公開前に必ずご自身でも事実確認をしてください。</p>
@@ -406,6 +409,13 @@ function copyText(id){
   }).catch(() => {
     alert('コピーに失敗しました');
   });
+}
+
+function shareOnX(){
+  const text = document.getElementById('teaserOut').textContent.trim();
+  const url = window.location.href;
+  const intentUrl = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url);
+  window.open(intentUrl, '_blank', 'noopener,noreferrer');
 }
 
 buildPresetSelect('presetA');
